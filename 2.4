@@ -1,0 +1,43 @@
+from tinydb import TinyDB, Query
+from cryptography.fernet import Fernet
+
+# ---------- 1. Загрузка ключа (предполагаем, что файл secret.key уже есть) ----------
+def load_key():
+    with open("secret.key", "rb") as key_file:
+        return key_file.read()
+
+key = load_key()
+cipher = Fernet(key)
+
+# ---------- 2. Инициализация TinyDB ----------
+db = TinyDB("example_nosql.json")
+User = Query()
+
+# ---------- 3. Функции для шифрованной вставки и чтения ----------
+def add_user(name, secret_info):
+    """Добавляет документ с зашифрованным полем secret_info."""
+    encrypted_secret = cipher.encrypt(secret_info.encode())
+    db.insert({"name": name, "secret_data": encrypted_secret})
+    print(f"Пользователь {name} добавлен (secret зашифрован).")
+
+def get_user_secret(name):
+    """Находит пользователя по имени и расшифровывает его secret."""
+    result = db.search(User.name == name)
+    if result:
+        encrypted = result[0]["secret_data"]
+        return cipher.decrypt(encrypted).decode()
+    return None
+
+# ---------- 4. Демонстрация ----------
+# Добавляем документы
+add_user("Виктор", "Любимый цвет: зелёный")
+add_user("Диана", "Кодовое слово: Альфа")
+
+# Читаем и расшифровываем
+print("\nЧтение секретов из NoSQL:")
+for name in ["Виктор", "Диана"]:
+    secret = get_user_secret(name)
+    print(f"{name}: {secret}")
+
+# Для проверки можно открыть файл example_nosql.json – поле secret_data будет в бинарном виде
+db.close()
