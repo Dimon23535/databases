@@ -1,0 +1,64 @@
+import sqlite3
+from cryptography.fernet import Fernet
+
+# ---------- 1. Генерация и сохранение ключа (только один раз) ----------
+def generate_key():
+    key = Fernet.generate_key()
+    with open("secret.key", "wb") as key_file:
+        key_file.write(key)
+    print("Ключ создан и сохранён в файл 'secret.key'")
+
+# generate_key()  # Раскомментируйте для первого запуска
+
+# ---------- 2. Загрузка ключа ----------
+def load_key():
+    with open("secret.key", "rb") as key_file:
+        return key_file.read()
+
+key = load_key()
+cipher = Fernet(key)
+
+# ---------- 3. Работа с базой данных SQLite ----------
+conn = sqlite3.connect("example_sql.db")
+cursor = conn.cursor()
+
+# Создаём таблицу (поле secret_data будет хранить зашифрованный текст)
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        secret_data BLOB
+    )
+""")
+conn.commit()
+
+# ---------- 4. Функции для шифрованной вставки и чтения ----------
+def insert_user(name, plain_secret):
+    """Шифрует plain_secret и сохраняет в БД."""
+    encrypted = cipher.encrypt(plain_secret.encode())
+    cursor.execute("INSERT INTO users (name, secret_data) VALUES (?, ?)", (name, encrypted))
+    conn.commit()
+    print(f"Пользователь {name} добавлен с зашифрованным секретом.")
+
+def get_user_secret(name):
+    """Извлекает и расшифровывает секрет по имени."""
+    cursor.execute("SELECT secret_data FROM users WHERE name = ?", (name,))
+    row = cursor.fetchone()
+    if row:
+        decrypted = cipher.decrypt(row[0]).decode()
+        return decrypted
+    else:
+        return None
+
+# ---------- 5. Демонстрация ----------
+# Вставляем несколько записей
+insert_user("Алиса", "Пароль от сейфа: 1234")
+insert_user("Боб", "Код домофона: 9876")
+
+# Читаем и расшифровываем
+print("\nЧтение секретов:")
+for user in ["Алиса", "Боб"]:
+    secret = get_user_secret(user)
+    print(f"{user}: {secret}")
+
+conn.close()
