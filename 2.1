@@ -1,0 +1,13 @@
+python
+from cryptography.fernet import Fernet
+# 1. Генерация ключа
+key = Fernet.generate_key()
+cipher = Fernet(key)	
+# 2. Исходные данные
+plaintext = input("Введите текст: ")
+# 3. Шифрование
+encrypted = cipher.encrypt(plaintext.encode())
+print("Зашифровано:", encrypted)
+# 4. Расшифровка
+decrypted = cipher.decrypt(encrypted).decode()
+print("Расшифровано:", decrypted)
